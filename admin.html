@@ -329,8 +329,55 @@
       font-size: 16px;
       letter-spacing: 3px;
     }
-    .hidden {
-      display: none !important;
+    /* History Table */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    .history-table th {
+      background: #090d16;
+      color: var(--subtext);
+      padding: 10px 14px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .history-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    .history-table tr:last-child td {
+      border-bottom: none;
+    }
+    .history-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .rc-badge {
+      font-family: monospace;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .empty-row td {
+      text-align: center;
+      padding: 24px;
+      color: var(--subtext);
+      font-style: italic;
     }
   </style>
 </head>
@@ -445,6 +492,42 @@
       </div>
     </div>
 
+    <!-- RC Numbers Used History Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>📜 RC Numbers Used History</span>
+        <span id="historyCountBadge" class="badge badge-active">0 Records</span>
+      </div>
+      <p style="font-size: 13px; color: var(--subtext); margin-bottom: 16px;">
+        Real-time log of all Ration Card numbers applied or changed through the assistant.
+      </p>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 14px; justify-content: space-between; flex-wrap: wrap;">
+        <input type="text" id="inputSearchRc" placeholder="🔍 Search RC number..." style="width: 220px; font-size: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnAddTestRc" class="btn btn-secondary" style="font-size: 12px;">➕ Log RC</button>
+          <button id="btnExportCsv" class="btn btn-secondary" style="font-size: 12px;">📥 Export CSV</button>
+          <button id="btnClearRcLog" class="btn btn-danger" style="font-size: 12px;">🗑️ Clear Log</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>RC Number</th>
+              <th>Date & Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Live Sync Token / Config Card -->
     <div class="card">
       <div class="card-title">
@@ -456,9 +539,14 @@
 
       <div class="token-card">
         <div id="configTokenBox" class="token-box">Loading configuration...</div>
-        <button id="btnCopyToken" class="btn btn-secondary" style="font-size: 12px;">
-          📋 Copy Token
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnCopyToken" class="btn btn-secondary" style="font-size: 12px;">
+            📋 Copy Token
+          </button>
+          <button id="btnImportToken" class="btn btn-secondary" style="font-size: 12px;">
+            📥 Import Token from Extension
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -477,6 +565,9 @@
       activeMonth: getYearMonth(),
       maxChanges: 50,
       usedChanges: 0,
+      rcHistory: [
+        { rcNumber: "240500267410", timestamp: new Date().toLocaleString(), status: "Initial Card" }
+      ],
       updatedAt: new Date().toISOString()
     };
 
@@ -484,7 +575,8 @@
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+          const parsed = JSON.parse(saved);
+          return { ...DEFAULT_CONFIG, ...parsed, rcHistory: parsed.rcHistory || DEFAULT_CONFIG.rcHistory };
         }
       } catch (e) {
         console.error(e);
@@ -517,12 +609,49 @@
     const btnSaveConfig = document.getElementById("btnSaveConfig");
     const configTokenBox = document.getElementById("configTokenBox");
     const btnCopyToken = document.getElementById("btnCopyToken");
+    const btnImportToken = document.getElementById("btnImportToken");
     const alertMsg = document.getElementById("alertMsg");
+
+    // History elements
+    const historyCountBadge = document.getElementById("historyCountBadge");
+    const inputSearchRc = document.getElementById("inputSearchRc");
+    const historyTableBody = document.getElementById("historyTableBody");
+    const btnAddTestRc = document.getElementById("btnAddTestRc");
+    const btnExportCsv = document.getElementById("btnExportCsv");
+    const btnClearRcLog = document.getElementById("btnClearRcLog");
 
     function showAlert(text) {
       alertMsg.textContent = text;
       alertMsg.classList.remove("hidden");
       setTimeout(() => alertMsg.classList.add("hidden"), 3000);
+    }
+
+    function renderHistoryTable(filterText = "") {
+      const history = currentConfig.rcHistory || [];
+      const query = filterText.toLowerCase().trim();
+      const filtered = history.filter(item => (item.rcNumber || "").toLowerCase().includes(query));
+
+      historyCountBadge.textContent = `${filtered.length} Record${filtered.length === 1 ? "" : "s"}`;
+      historyTableBody.innerHTML = "";
+
+      if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        tr.className = "empty-row";
+        tr.innerHTML = '<td colspan="4">No ration card numbers match the query.</td>';
+        historyTableBody.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="color: var(--subtext);">${idx + 1}</td>
+          <td><span class="rc-badge">${item.rcNumber}</span></td>
+          <td style="color: var(--subtext); font-size: 12px;">${item.timestamp || "N/A"}</td>
+          <td><span class="badge badge-active" style="font-size: 11px;">✓ Applied</span></td>
+        `;
+        historyTableBody.appendChild(tr);
+      });
     }
 
     function updateUi() {
@@ -547,6 +676,7 @@
       }
 
       configTokenBox.textContent = JSON.stringify(currentConfig);
+      renderHistoryTable(inputSearchRc.value);
     }
 
     // PIN Authentication
@@ -587,6 +717,58 @@
       }
     });
 
+    // Filter Search
+    inputSearchRc.addEventListener("input", (e) => {
+      renderHistoryTable(e.target.value);
+    });
+
+    // Add Manual RC Entry
+    btnAddTestRc.addEventListener("click", () => {
+      const rc = prompt("Enter Ration Card number to log:", "240500267410");
+      if (rc && rc.trim()) {
+        const newEntry = {
+          rcNumber: rc.trim(),
+          timestamp: new Date().toLocaleString(),
+          status: "Manual Entry"
+        };
+        currentConfig.rcHistory = [newEntry, ...(currentConfig.rcHistory || [])];
+        currentConfig.usedChanges = (currentConfig.usedChanges || 0) + 1;
+        saveConfig(currentConfig);
+        updateUi();
+        showAlert(`✓ Logged RC number: ${rc.trim()}`);
+      }
+    });
+
+    // Clear History Log
+    btnClearRcLog.addEventListener("click", () => {
+      if (confirm("Clear all recorded RC numbers from log?")) {
+        currentConfig.rcHistory = [];
+        saveConfig(currentConfig);
+        updateUi();
+        showAlert("✓ RC history log cleared.");
+      }
+    });
+
+    // Export CSV
+    btnExportCsv.addEventListener("click", () => {
+      const history = currentConfig.rcHistory || [];
+      if (history.length === 0) {
+        alert("No records to export.");
+        return;
+      }
+      let csvContent = "data:text/csv;charset=utf-8,Index,RC Number,Date & Time,Status\n";
+      history.forEach((row, i) => {
+        csvContent += `${i + 1},"${row.rcNumber}","${row.timestamp}","Applied"\n`;
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `rc_numbers_history_${getYearMonth()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
     // Save
     btnSaveConfig.addEventListener("click", () => {
       currentConfig.isEnabled = switchEnabled.checked;
@@ -605,6 +787,22 @@
       navigator.clipboard.writeText(configTokenBox.textContent).then(() => {
         showAlert("✓ Config token copied to clipboard!");
       });
+    });
+
+    // Import Token
+    btnImportToken.addEventListener("click", () => {
+      const token = prompt("Paste Config Sync Token from Extension:");
+      if (token && token.trim()) {
+        try {
+          const parsed = JSON.parse(token.trim());
+          currentConfig = { ...currentConfig, ...parsed };
+          saveConfig(currentConfig);
+          updateUi();
+          showAlert("✓ Successfully imported token and synced RC history!");
+        } catch (e) {
+          alert("Invalid token format: " + e.message);
+        }
+      }
     });
 
     updateUi();

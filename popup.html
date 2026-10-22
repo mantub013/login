@@ -122,6 +122,17 @@
         <input type="password" id="adminNewPin" placeholder="Change PIN" maxlength="8">
       </div>
 
+      <!-- RC Numbers Used History -->
+      <div class="admin-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label>RC Numbers Used Log</label>
+          <button type="button" id="btnClearPopupHistory" class="btn-text" style="color: #ef4444; font-size: 11px;">Clear</button>
+        </div>
+        <div id="popupHistoryList" class="history-container">
+          <div class="history-empty">No RC numbers changed yet</div>
+        </div>
+      </div>
+
       <!-- Save Button -->
       <button id="btnSaveAdminSettings" class="btn btn-primary btn-block">
         Save Admin Settings

@@ -403,3 +403,44 @@ input:checked + .slider:before {
   color: #ef4444;
   font-size: 11px;
 }
+
+/* History container in popup */
+.history-container {
+  max-height: 110px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  font-size: 11px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-rc {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.history-time {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 10px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+

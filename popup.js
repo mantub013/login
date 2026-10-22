@@ -14,7 +14,8 @@ const DEFAULTS = {
   activeMonth: getCurrentYearMonth(),
   maxChanges: 50,
   usedChanges: 0,
-  lastRcNumber: "240500267410"
+  lastRcNumber: "240500267410",
+  rcHistory: []
 };
 
 let currentConfig = { ...DEFAULTS };
@@ -49,6 +50,8 @@ const adminMaxChanges = document.getElementById("adminMaxChanges");
 const btnResetUsage = document.getElementById("btnResetUsage");
 const adminUsageDetail = document.getElementById("adminUsageDetail");
 const adminNewPin = document.getElementById("adminNewPin");
+const popupHistoryList = document.getElementById("popupHistoryList");
+const btnClearPopupHistory = document.getElementById("btnClearPopupHistory");
 const btnSaveAdminSettings = document.getElementById("btnSaveAdminSettings");
 const adminSaveFeedback = document.getElementById("adminSaveFeedback");
 
@@ -128,6 +131,24 @@ function showAdminMessage(text, type = "info") {
   }, 3000);
 }
 
+function renderPopupHistory() {
+  const history = currentConfig.rcHistory || [];
+  popupHistoryList.innerHTML = "";
+  if (history.length === 0) {
+    popupHistoryList.innerHTML = '<div class="history-empty">No RC numbers changed yet</div>';
+    return;
+  }
+  history.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "history-item";
+    row.innerHTML = `
+      <span class="history-rc">${item.rcNumber}</span>
+      <span class="history-time">${item.timestamp}</span>
+    `;
+    popupHistoryList.appendChild(row);
+  });
+}
+
 // Populate Admin UI
 function populateAdminUi() {
   adminSwitchEnabled.checked = currentConfig.isEnabled;
@@ -136,6 +157,7 @@ function populateAdminUi() {
   adminMaxChanges.value = currentConfig.maxChanges || 50;
   adminUsageDetail.textContent = `Used: ${currentConfig.usedChanges || 0} / ${currentConfig.maxChanges || 50}`;
   adminNewPin.value = "";
+  renderPopupHistory();
 }
 
 // Apply RC update on the active page
@@ -184,9 +206,19 @@ btnApplyRc.addEventListener("click", async () => {
           currentConfig.usedChanges = updatedUsed;
           currentConfig.lastRcNumber = rcVal;
 
+          // Record in history log
+          const historyEntry = {
+            rcNumber: rcVal,
+            timestamp: new Date().toLocaleString(),
+            date: new Date().toISOString()
+          };
+          const updatedHistory = [historyEntry, ...(currentConfig.rcHistory || [])].slice(0, 100);
+          currentConfig.rcHistory = updatedHistory;
+
           chrome.storage.local.set({
             usedChanges: updatedUsed,
-            lastRcNumber: rcVal
+            lastRcNumber: rcVal,
+            rcHistory: updatedHistory
           }, () => {
             refreshUserUi();
             showUserMessage(`✓ Enabled & updated to ${rcVal}!`, "success");
@@ -201,6 +233,17 @@ btnApplyRc.addEventListener("click", async () => {
     btnApplyRc.disabled = false;
     btnApplyRc.textContent = "⚡ Enable & Update RC";
     showUserMessage(`Error: ${err.message}`, "error");
+  }
+});
+
+// Clear popup history listener
+btnClearPopupHistory.addEventListener("click", () => {
+  if (confirm("Clear RC numbers history log?")) {
+    currentConfig.rcHistory = [];
+    chrome.storage.local.set({ rcHistory: [] }, () => {
+      renderPopupHistory();
+      showAdminMessage("RC history cleared.", "success");
+    });
   }
 });
 
