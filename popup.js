@@ -1,4 +1,7 @@
-// popup.js - Controller for user popup and admin settings
+// popup.js - Ultra-minimal user controller with zero user settings
+// All permissions, limits, and monthly activations are controlled by the Admin.
+
+const REMOTE_CONFIG_URL = "https://mantub013.github.io/login/config.json";
 
 function getCurrentYearMonth() {
   const d = new Date();
@@ -9,7 +12,6 @@ function getCurrentYearMonth() {
 
 const DEFAULTS = {
   isEnabled: true,
-  adminPin: "1234",
   authorizedUsername: "9731147181",
   activeMonth: getCurrentYearMonth(),
   maxChanges: 50,
@@ -21,10 +23,6 @@ const DEFAULTS = {
 let currentConfig = { ...DEFAULTS };
 
 // DOM Elements
-const userView = document.getElementById("userView");
-const adminView = document.getElementById("adminView");
-const adminPinModal = document.getElementById("adminPinModal");
-
 const statusBadge = document.getElementById("statusBadge");
 const statusText = document.getElementById("statusText");
 const inputRcNumber = document.getElementById("inputRcNumber");
@@ -33,55 +31,37 @@ const quotaCountText = document.getElementById("quotaCountText");
 const quotaProgressBar = document.getElementById("quotaProgressBar");
 const userFeedback = document.getElementById("userFeedback");
 
-// Admin Modal Elements
-const btnToggleAdmin = document.getElementById("btnToggleAdmin");
-const inputAdminPin = document.getElementById("inputAdminPin");
-const btnCancelPin = document.getElementById("btnCancelPin");
-const btnSubmitPin = document.getElementById("btnSubmitPin");
-const pinErrorMsg = document.getElementById("pinErrorMsg");
-
-// Admin View Elements
-const btnCloseAdmin = document.getElementById("btnCloseAdmin");
-const adminSwitchEnabled = document.getElementById("adminSwitchEnabled");
-const adminActiveMonth = document.getElementById("adminActiveMonth");
-const btnAuthorizeMonth = document.getElementById("btnAuthorizeMonth");
-const adminAuthUsername = document.getElementById("adminAuthUsername");
-const adminMaxChanges = document.getElementById("adminMaxChanges");
-const btnResetUsage = document.getElementById("btnResetUsage");
-const adminUsageDetail = document.getElementById("adminUsageDetail");
-const adminNewPin = document.getElementById("adminNewPin");
-const popupHistoryList = document.getElementById("popupHistoryList");
-const btnClearPopupHistory = document.getElementById("btnClearPopupHistory");
-const btnSaveAdminSettings = document.getElementById("btnSaveAdminSettings");
-const adminSaveFeedback = document.getElementById("adminSaveFeedback");
-
-// Load settings from storage
-function loadSettings(callback) {
-  chrome.storage.local.get(DEFAULTS, (data) => {
-    currentConfig = { ...DEFAULTS, ...data };
-    if (callback) callback();
-  });
+// Show feedback message
+function showUserMessage(text, type = "info") {
+  userFeedback.textContent = text;
+  userFeedback.className = `feedback-msg ${type}`;
+  userFeedback.classList.remove("hidden");
 }
 
-// Refresh User View UI
+function clearUserMessage() {
+  userFeedback.textContent = "";
+  userFeedback.classList.add("hidden");
+}
+
+// Refresh User UI
 function refreshUserUi() {
   const currentMonth = getCurrentYearMonth();
   const isMonthValid = currentConfig.activeMonth === currentMonth;
   const isQuotaAvailable = currentConfig.usedChanges < currentConfig.maxChanges;
 
-  // Status Badge Logic
   statusBadge.className = "status-badge";
+
   if (!currentConfig.isEnabled) {
     statusBadge.classList.add("badge-disabled");
     statusText.textContent = "Disabled by Admin";
     btnApplyRc.disabled = true;
   } else if (!isMonthValid) {
     statusBadge.classList.add("badge-warning");
-    statusText.textContent = `Expired (${currentConfig.activeMonth || "None"}) - Needs Admin`;
+    statusText.textContent = `Expired (${currentConfig.activeMonth || "N/A"}) - Needs Admin Approval`;
     btnApplyRc.disabled = true;
   } else if (!isQuotaAvailable) {
     statusBadge.classList.add("badge-disabled");
-    statusText.textContent = `Quota Limit Reached (${currentConfig.usedChanges}/${currentConfig.maxChanges})`;
+    statusText.textContent = `Quota Reached (${currentConfig.usedChanges}/${currentConfig.maxChanges})`;
     btnApplyRc.disabled = true;
   } else {
     statusBadge.classList.add("badge-active");
@@ -95,6 +75,7 @@ function refreshUserUi() {
   quotaCountText.textContent = `${used} / ${max}`;
   const pct = Math.min(100, Math.round((used / max) * 100));
   quotaProgressBar.style.width = `${pct}%`;
+
   if (pct >= 100) {
     quotaProgressBar.style.backgroundColor = "#ef4444";
   } else if (pct >= 80) {
@@ -103,61 +84,33 @@ function refreshUserUi() {
     quotaProgressBar.style.backgroundColor = "#10b981";
   }
 
-  // RC input value (fill last entered if input empty)
+  // Default input value
   if (!inputRcNumber.value && currentConfig.lastRcNumber) {
     inputRcNumber.value = currentConfig.lastRcNumber;
   }
 }
 
-// Show feedback message in user view
-function showUserMessage(text, type = "info") {
-  userFeedback.textContent = text;
-  userFeedback.className = `feedback-msg ${type}`;
-  userFeedback.classList.remove("hidden");
-}
+// Sync latest remote config from Admin server / GitHub Pages
+async function syncRemoteAdminConfig() {
+  try {
+    const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (res.ok) {
+      const remote = await res.json();
+      const updates = {};
+      if (typeof remote.isEnabled === "boolean") updates.isEnabled = remote.isEnabled;
+      if (remote.authorizedUsername) updates.authorizedUsername = remote.authorizedUsername;
+      if (remote.activeMonth) updates.activeMonth = remote.activeMonth;
+      if (remote.maxChanges) updates.maxChanges = remote.maxChanges;
 
-function clearUserMessage() {
-  userFeedback.textContent = "";
-  userFeedback.classList.add("hidden");
-}
-
-// Show feedback message in admin view
-function showAdminMessage(text, type = "info") {
-  adminSaveFeedback.textContent = text;
-  adminSaveFeedback.className = `feedback-msg ${type}`;
-  adminSaveFeedback.classList.remove("hidden");
-  setTimeout(() => {
-    adminSaveFeedback.classList.add("hidden");
-  }, 3000);
-}
-
-function renderPopupHistory() {
-  const history = currentConfig.rcHistory || [];
-  popupHistoryList.innerHTML = "";
-  if (history.length === 0) {
-    popupHistoryList.innerHTML = '<div class="history-empty">No RC numbers changed yet</div>';
-    return;
+      currentConfig = { ...currentConfig, ...updates };
+      chrome.storage.local.set(updates, () => {
+        refreshUserUi();
+      });
+    }
+  } catch (e) {
+    // If offline or unreachable, rely on local cached settings
+    console.log("[RC Extension] Using local config cache:", e.message);
   }
-  history.forEach(item => {
-    const row = document.createElement("div");
-    row.className = "history-item";
-    row.innerHTML = `
-      <span class="history-rc">${item.rcNumber}</span>
-      <span class="history-time">${item.timestamp}</span>
-    `;
-    popupHistoryList.appendChild(row);
-  });
-}
-
-// Populate Admin UI
-function populateAdminUi() {
-  adminSwitchEnabled.checked = currentConfig.isEnabled;
-  adminActiveMonth.value = currentConfig.activeMonth || getCurrentYearMonth();
-  adminAuthUsername.value = currentConfig.authorizedUsername || "9731147181";
-  adminMaxChanges.value = currentConfig.maxChanges || 50;
-  adminUsageDetail.textContent = `Used: ${currentConfig.usedChanges || 0} / ${currentConfig.maxChanges || 50}`;
-  adminNewPin.value = "";
-  renderPopupHistory();
 }
 
 // Apply RC update on the active page
@@ -183,7 +136,6 @@ btnApplyRc.addEventListener("click", async () => {
       return;
     }
 
-    // Send action to content script
     chrome.tabs.sendMessage(
       tab.id,
       {
@@ -201,12 +153,10 @@ btnApplyRc.addEventListener("click", async () => {
         }
 
         if (response && response.success) {
-          // Increment usage counter and save last RC
           const updatedUsed = (currentConfig.usedChanges || 0) + 1;
           currentConfig.usedChanges = updatedUsed;
           currentConfig.lastRcNumber = rcVal;
 
-          // Record in history log
           const historyEntry = {
             rcNumber: rcVal,
             timestamp: new Date().toLocaleString(),
@@ -236,110 +186,11 @@ btnApplyRc.addEventListener("click", async () => {
   }
 });
 
-// Clear popup history listener
-btnClearPopupHistory.addEventListener("click", () => {
-  if (confirm("Clear RC numbers history log?")) {
-    currentConfig.rcHistory = [];
-    chrome.storage.local.set({ rcHistory: [] }, () => {
-      renderPopupHistory();
-      showAdminMessage("RC history cleared.", "success");
-    });
-  }
-});
-
-// Admin modal open
-btnToggleAdmin.addEventListener("click", () => {
-  inputAdminPin.value = "";
-  pinErrorMsg.classList.add("hidden");
-  adminPinModal.classList.remove("hidden");
-  inputAdminPin.focus();
-});
-
-// Admin modal cancel
-btnCancelPin.addEventListener("click", () => {
-  adminPinModal.classList.add("hidden");
-});
-
-// Admin modal verify PIN
-btnSubmitPin.addEventListener("click", () => {
-  const entered = inputAdminPin.value.trim();
-  if (entered === currentConfig.adminPin) {
-    adminPinModal.classList.add("hidden");
-    userView.classList.add("hidden");
-    adminView.classList.remove("hidden");
-    populateAdminUi();
-  } else {
-    pinErrorMsg.classList.remove("hidden");
-  }
-});
-
-inputAdminPin.addEventListener("keyup", (e) => {
-  if (e.key === "Enter") {
-    btnSubmitPin.click();
-  }
-});
-
-// Back from admin
-btnCloseAdmin.addEventListener("click", () => {
-  adminView.classList.add("hidden");
-  userView.classList.remove("hidden");
-  refreshUserUi();
-});
-
-// Admin: Authorize Current Month
-btnAuthorizeMonth.addEventListener("click", () => {
-  const thisMonth = getCurrentYearMonth();
-  adminActiveMonth.value = thisMonth;
-  showAdminMessage(`Active month set to ${thisMonth}`, "info");
-});
-
-// Admin: Reset Usage
-btnResetUsage.addEventListener("click", () => {
-  if (confirm("Reset change usage count back to 0?")) {
-    currentConfig.usedChanges = 0;
-    chrome.storage.local.set({ usedChanges: 0 }, () => {
-      adminUsageDetail.textContent = `Used: 0 / ${adminMaxChanges.value}`;
-      showAdminMessage("Usage counter reset to 0.", "success");
-    });
-  }
-});
-
-// Admin: Save Settings
-btnSaveAdminSettings.addEventListener("click", () => {
-  const newMax = parseInt(adminMaxChanges.value, 10);
-  if (isNaN(newMax) || newMax < 1) {
-    showAdminMessage("Max changes must be at least 1", "error");
-    return;
-  }
-
-  const updates = {
-    isEnabled: adminSwitchEnabled.checked,
-    activeMonth: adminActiveMonth.value.trim() || getCurrentYearMonth(),
-    authorizedUsername: adminAuthUsername.value.trim() || "9731147181",
-    maxChanges: newMax
-  };
-
-  const newPinVal = adminNewPin.value.trim();
-  if (newPinVal) {
-    if (newPinVal.length < 4) {
-      showAdminMessage("PIN should be at least 4 digits", "error");
-      return;
-    }
-    updates.adminPin = newPinVal;
-  }
-
-  chrome.storage.local.set(updates, () => {
-    currentConfig = { ...currentConfig, ...updates };
-    showAdminMessage("Admin settings saved successfully!", "success");
-    setTimeout(() => {
-      btnCloseAdmin.click();
-    }, 900);
-  });
-});
-
-// Initial load
+// Initialize on open
 document.addEventListener("DOMContentLoaded", () => {
-  loadSettings(() => {
+  chrome.storage.local.get(DEFAULTS, (data) => {
+    currentConfig = { ...DEFAULTS, ...data };
     refreshUserUi();
+    syncRemoteAdminConfig();
   });
 });
