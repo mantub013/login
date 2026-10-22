@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RC Number Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header (No settings icon for user) -->
+    <header class="header">
+      <div class="title-wrap">
+        <span class="icon">💳</span>
+        <h1 class="title">RC Assistant</h1>
+      </div>
+    </header>
+
+    <!-- User View Only -->
+    <main class="view">
+      <!-- Status Badge -->
+      <div id="statusBadge" class="status-badge badge-active">
+        <span class="dot"></span>
+        <span id="statusText">Checking status...</span>
+      </div>
+
+      <!-- RC Input Form -->
+      <div class="form-group">
+        <label for="inputRcNumber">Enter New RC Number</label>
+        <input 
+          type="text" 
+          id="inputRcNumber" 
+          placeholder="e.g. 240500267410" 
+          maxlength="15" 
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+
+      <!-- Action Button -->
+      <button id="btnApplyRc" class="btn btn-primary">
+        ⚡ Enable & Update RC
+      </button>
+
+      <!-- Usage Counter -->
+      <div class="quota-container">
+        <div class="quota-labels">
+          <span>Changes Used</span>
+          <span id="quotaCountText">0 / 50</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="quotaProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Notification / Feedback -->
+      <div id="userFeedback" class="feedback-msg hidden"></div>
+    </main>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
