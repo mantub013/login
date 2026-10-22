@@ -17,7 +17,8 @@ const DEFAULTS = {
   maxChanges: 50,
   usedChanges: 0,
   lastRcNumber: "240500267410",
-  rcHistory: []
+  rcHistory: [],
+  updatedAt: 0
 };
 
 let currentConfig = { ...DEFAULTS };
@@ -69,7 +70,7 @@ function refreshUserUi() {
     btnApplyRc.disabled = false;
   }
 
-  // Quota bar
+  // Quota bar & limit text
   const used = currentConfig.usedChanges || 0;
   const max = currentConfig.maxChanges || 50;
   quotaCountText.textContent = `${used} / ${max}`;
@@ -96,26 +97,23 @@ async function syncRemoteAdminConfig() {
     const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, { cache: "no-store" });
     if (res.ok) {
       const remote = await res.json();
-      const updates = {};
-      if (typeof remote.isEnabled === "boolean") updates.isEnabled = remote.isEnabled;
-      if (remote.authorizedUsername) updates.authorizedUsername = remote.authorizedUsername;
-      if (remote.activeMonth) updates.activeMonth = remote.activeMonth;
-      if (remote.maxChanges) updates.maxChanges = remote.maxChanges;
+      const remoteTime = new Date(remote.updatedAt || 0).getTime();
+      const localTime = new Date(currentConfig.updatedAt || 0).getTime();
 
-      // Sync Changes Used if remote has an update or reset timestamp
-      if (typeof remote.usedChanges === "number") {
-        const remoteTs = remote.lastResetTimestamp || 0;
-        const localTs = currentConfig.lastResetTimestamp || 0;
-        if (remoteTs >= localTs) {
-          updates.usedChanges = remote.usedChanges;
-          updates.lastResetTimestamp = remoteTs;
-        }
+      // Only update from remote if the remote config is strictly NEWER than local admin edits
+      if (remoteTime > localTime) {
+        const updates = { updatedAt: remote.updatedAt };
+        if (typeof remote.isEnabled === "boolean") updates.isEnabled = remote.isEnabled;
+        if (remote.authorizedUsername) updates.authorizedUsername = remote.authorizedUsername;
+        if (remote.activeMonth) updates.activeMonth = remote.activeMonth;
+        if (typeof remote.maxChanges === "number") updates.maxChanges = remote.maxChanges;
+        if (typeof remote.usedChanges === "number") updates.usedChanges = remote.usedChanges;
+
+        currentConfig = { ...currentConfig, ...updates };
+        chrome.storage.local.set(updates, () => {
+          refreshUserUi();
+        });
       }
-
-      currentConfig = { ...currentConfig, ...updates };
-      chrome.storage.local.set(updates, () => {
-        refreshUserUi();
-      });
     }
   } catch (e) {
     // If offline or unreachable, rely on local cached settings
