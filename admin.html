@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Ration Portal Assistant</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --subtext: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    /* Header */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .top-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-links a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      margin-left: 12px;
+      padding: 6px 12px;
+      background: rgba(37, 99, 235, 0.1);
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-links a:hover {
+      background: rgba(37, 99, 235, 0.25);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Status Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-disabled {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Form rows */
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info {
+      max-width: 65%;
+    }
+
+    .setting-info label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .setting-info .subtext {
+      font-size: 12px;
+      color: var(--subtext);
+      line-height: 1.4;
+    }
+
+    .setting-control {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="password"] {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.35);
+    }
+
+    .btn-secondary {
+      background: var(--border);
+      color: #fff;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--border);
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--success);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Token box */
+    .token-card {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+
+    .token-box {
+      background: #000;
+      border: 1px dashed var(--border);
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      word-break: break-all;
+      margin: 10px 0;
+      user-select: all;
+    }
+
+    /* Alerts */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .alert-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Lock Overlay */
+    .lock-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .lock-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .lock-card h2 {
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+    .lock-card p {
+      color: var(--subtext);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .lock-card input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-size: 16px;
+      letter-spacing: 3px;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Lock Screen Overlay -->
+  <div id="lockOverlay" class="lock-overlay">
+    <div class="lock-card">
+      <div style="font-size: 32px; margin-bottom: 12px;">🔒</div>
+      <h2>Admin Authentication</h2>
+      <p>Enter your secret PIN to access the management portal</p>
+      <input type="password" id="inputPin" placeholder="••••" maxlength="8" autofocus>
+      <button id="btnUnlock" class="btn btn-primary" style="width: 100%; justify-content: center;">
+        Unlock Dashboard
+      </button>
+      <div id="lockError" class="alert alert-danger hidden" style="margin-top: 14px; padding: 8px;">
+        Incorrect PIN. Default is: 1234
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Container -->
+  <div class="container">
+    <header class="top-header">
+      <h1>
+        <span>⚙️</span> Admin Portal
+      </h1>
+      <nav class="nav-links">
+        <a href="test_page.html" target="_blank">🧪 Test Portal Page</a>
+        <a href="https://github.com/mantub013/login" target="_blank">📂 GitHub Repo</a>
+        <button id="btnLock" class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; margin-left: 8px;">Lock</button>
+      </nav>
+    </header>
+
+    <div id="alertMsg" class="alert alert-success hidden"></div>
+
+    <!-- Overview Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>System Status</span>
+        <span id="badgeStatus" class="badge badge-active">Active</span>
+      </div>
+
+      <!-- Master Switch -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Extension Master Switch</label>
+          <div class="subtext">Globally enable or disable the extension functionality.</div>
+        </div>
+        <div class="setting-control">
+          <label class="switch">
+            <input type="checkbox" id="switchEnabled" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Monthly Authorization -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Monthly Approval</label>
+          <div class="subtext">Active month authorized for operations. Expires automatically each month.</div>
+        </div>
+        <div class="setting-control">
+          <input type="text" id="activeMonth" style="width: 100px; text-align: center;" readonly>
+          <button id="btnAuthorizeCurrentMonth" class="btn btn-success">
+            ✓ Authorize This Month
+          </button>
+        </div>
+      </div>
+
+      <!-- Authorized Username -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Authorized Username / Phone</label>
+          <div class="subtext">Must match <code>ctl00_ContentPlaceHolder1_hidusername</code> on the portal.</div>
+        </div>
+        <div class="setting-control">
+          <input type="text" id="authUsername" value="9731147181" style="width: 140px;">
+        </div>
+      </div>
+
+      <!-- Max Usage Limit -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Maximum Changes Quota</label>
+          <div class="subtext">Number of times the user is permitted to update the RC number.</div>
+        </div>
+        <div class="setting-control">
+          <input type="number" id="maxChanges" value="50" min="1" max="9999" style="width: 80px;">
+          <button id="btnResetCounter" class="btn btn-danger" title="Reset counter to 0">
+            Reset (0)
+          </button>
+        </div>
+      </div>
+
+      <!-- PIN Setting -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Admin Access PIN</label>
+          <div class="subtext">Secret PIN to protect admin settings in the extension & dashboard.</div>
+        </div>
+        <div class="setting-control">
+          <input type="password" id="adminPin" value="1234" maxlength="8" style="width: 90px;">
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="btnSaveConfig" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px;">
+          💾 Save & Update Config
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Sync Token / Config Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>📋 One-Click Config Sync Token</span>
+      </div>
+      <p style="font-size: 13px; color: var(--subtext);">
+        Share this configuration string or sync it directly with the browser extension.
+      </p>
+
+      <div class="token-card">
+        <div id="configTokenBox" class="token-box">Loading configuration...</div>
+        <button id="btnCopyToken" class="btn btn-secondary" style="font-size: 12px;">
+          📋 Copy Token
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getYearMonth() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    const STORAGE_KEY = "rc_admin_dashboard_config";
+    const DEFAULT_CONFIG = {
+      isEnabled: true,
+      adminPin: "1234",
+      authorizedUsername: "9731147181",
+      activeMonth: getYearMonth(),
+      maxChanges: 50,
+      usedChanges: 0,
+      updatedAt: new Date().toISOString()
+    };
+
+    function loadConfig() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return { ...DEFAULT_CONFIG };
+    }
+
+    function saveConfig(cfg) {
+      cfg.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    }
+
+    let currentConfig = loadConfig();
+
+    // DOM references
+    const lockOverlay = document.getElementById("lockOverlay");
+    const inputPin = document.getElementById("inputPin");
+    const btnUnlock = document.getElementById("btnUnlock");
+    const lockError = document.getElementById("lockError");
+    const btnLock = document.getElementById("btnLock");
+
+    const badgeStatus = document.getElementById("badgeStatus");
+    const switchEnabled = document.getElementById("switchEnabled");
+    const activeMonth = document.getElementById("activeMonth");
+    const btnAuthorizeCurrentMonth = document.getElementById("btnAuthorizeCurrentMonth");
+    const authUsername = document.getElementById("authUsername");
+    const maxChanges = document.getElementById("maxChanges");
+    const btnResetCounter = document.getElementById("btnResetCounter");
+    const adminPin = document.getElementById("adminPin");
+    const btnSaveConfig = document.getElementById("btnSaveConfig");
+    const configTokenBox = document.getElementById("configTokenBox");
+    const btnCopyToken = document.getElementById("btnCopyToken");
+    const alertMsg = document.getElementById("alertMsg");
+
+    function showAlert(text) {
+      alertMsg.textContent = text;
+      alertMsg.classList.remove("hidden");
+      setTimeout(() => alertMsg.classList.add("hidden"), 3000);
+    }
+
+    function updateUi() {
+      switchEnabled.checked = currentConfig.isEnabled;
+      activeMonth.value = currentConfig.activeMonth || getYearMonth();
+      authUsername.value = currentConfig.authorizedUsername || "9731147181";
+      maxChanges.value = currentConfig.maxChanges || 50;
+      adminPin.value = currentConfig.adminPin || "1234";
+
+      const currentMonth = getYearMonth();
+      const isExpired = currentConfig.activeMonth !== currentMonth;
+
+      if (!currentConfig.isEnabled) {
+        badgeStatus.className = "badge badge-disabled";
+        badgeStatus.textContent = "Disabled";
+      } else if (isExpired) {
+        badgeStatus.className = "badge badge-disabled";
+        badgeStatus.textContent = `Expired (${currentConfig.activeMonth})`;
+      } else {
+        badgeStatus.className = "badge badge-active";
+        badgeStatus.textContent = `Active (${currentConfig.activeMonth})`;
+      }
+
+      configTokenBox.textContent = JSON.stringify(currentConfig);
+    }
+
+    // PIN Authentication
+    btnUnlock.addEventListener("click", () => {
+      const entered = inputPin.value.trim();
+      if (entered === currentConfig.adminPin) {
+        lockOverlay.classList.add("hidden");
+        lockError.classList.add("hidden");
+        updateUi();
+      } else {
+        lockError.classList.remove("hidden");
+      }
+    });
+
+    inputPin.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") btnUnlock.click();
+    });
+
+    btnLock.addEventListener("click", () => {
+      inputPin.value = "";
+      lockOverlay.classList.remove("hidden");
+    });
+
+    // Authorize Current Month
+    btnAuthorizeCurrentMonth.addEventListener("click", () => {
+      const thisMonth = getYearMonth();
+      activeMonth.value = thisMonth;
+      showAlert(`✓ Authorized for current month (${thisMonth})`);
+    });
+
+    // Reset Counter
+    btnResetCounter.addEventListener("click", () => {
+      if (confirm("Reset change counter to 0?")) {
+        currentConfig.usedChanges = 0;
+        saveConfig(currentConfig);
+        updateUi();
+        showAlert("✓ Usage counter reset to 0.");
+      }
+    });
+
+    // Save
+    btnSaveConfig.addEventListener("click", () => {
+      currentConfig.isEnabled = switchEnabled.checked;
+      currentConfig.activeMonth = activeMonth.value.trim();
+      currentConfig.authorizedUsername = authUsername.value.trim();
+      currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 50;
+      currentConfig.adminPin = adminPin.value.trim() || "1234";
+
+      saveConfig(currentConfig);
+      updateUi();
+      showAlert("✓ All admin settings updated and saved!");
+    });
+
+    // Copy Token
+    btnCopyToken.addEventListener("click", () => {
+      navigator.clipboard.writeText(configTokenBox.textContent).then(() => {
+        showAlert("✓ Config token copied to clipboard!");
+      });
+    });
+
+    updateUi();
+  </script>
+</body>
+</html>
