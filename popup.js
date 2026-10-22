@@ -113,6 +113,16 @@ async function syncRemoteAdminConfig() {
   }
 }
 
+// Allow pressing Enter in input field
+inputRcNumber.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (!btnApplyRc.disabled) {
+      btnApplyRc.click();
+    }
+  }
+});
+
 // Apply RC update on the active page
 btnApplyRc.addEventListener("click", async () => {
   clearUserMessage();

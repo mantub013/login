@@ -1,6 +1,8 @@
 // content.js - Injected into the web page to handle verification and RC number updates
 
 (() => {
+  let isObserverActive = false;
+
   // Check page status and elements
   function checkPagePrerequisites(authorizedUsername) {
     // 1. Check for the hidden username input
@@ -55,6 +57,28 @@
     };
   }
 
+  // Ensure field stays enabled if ASP.NET partial postback alters it
+  function attachPostbackObserver(rcInput, desiredValue) {
+    if (isObserverActive || !rcInput) return;
+    isObserverActive = true;
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "attributes" && mutation.attributeName === "disabled") {
+          if (rcInput.disabled || rcInput.getAttribute("disabled")) {
+            rcInput.removeAttribute("disabled");
+            rcInput.disabled = false;
+            rcInput.setAttribute("enable", "enable");
+            rcInput.readOnly = false;
+            if (desiredValue) rcInput.value = desiredValue;
+          }
+        }
+      });
+    });
+
+    observer.observe(rcInput, { attributes: true });
+  }
+
   // Perform enabling and updating RC number
   function applyRcUpdate(newRcNumber, authorizedUsername) {
     const check = checkPagePrerequisites(authorizedUsername);
@@ -71,14 +95,18 @@
     rcInput.readOnly = false;
 
     // Set new RC number if provided
+    let finalRc = rcInput.value;
     if (newRcNumber && newRcNumber.trim() !== "") {
-      const trimmedRc = newRcNumber.trim();
-      rcInput.value = trimmedRc;
+      finalRc = newRcNumber.trim();
+      rcInput.value = finalRc;
       
       // Dispatch events so ASP.NET and JavaScript forms detect the change
       rcInput.dispatchEvent(new Event("input", { bubbles: true }));
       rcInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
+
+    // Attach observer to prevent ASP.NET from re-disabling
+    attachPostbackObserver(rcInput, finalRc);
 
     // Visual feedback highlight
     const originalBorder = rcInput.style.border;
@@ -116,14 +144,38 @@
     }
   });
 
-  // Optional: auto-check once on load
-  window.addEventListener("load", () => {
-    chrome.storage.local.get(["isEnabled", "authorizedUsername", "activeMonth", "usedChanges", "maxChanges"], (data) => {
+  // Admin Dashboard Bridge (Allows admin.html on GitHub Pages to communicate with extension storage directly)
+  window.addEventListener("message", (event) => {
+    if (!event.data || !event.data.type) return;
+
+    if (event.data.type === "RC_ADMIN_REQUEST_DATA") {
+      chrome.storage.local.get(null, (data) => {
+        window.postMessage({ type: "RC_ADMIN_RESPONSE_DATA", data }, "*");
+      });
+    }
+
+    if (event.data.type === "RC_ADMIN_SAVE_DATA" && event.data.updates) {
+      chrome.storage.local.set(event.data.updates, () => {
+        window.postMessage({ type: "RC_ADMIN_SAVE_SUCCESS" }, "*");
+      });
+    }
+  });
+
+  // Auto-check once DOM is ready
+  function initOnPageReady() {
+    chrome.storage.local.get(["isEnabled", "authorizedUsername"], (data) => {
       if (!data || data.isEnabled === false) return;
       const check = checkPagePrerequisites(data.authorizedUsername || "9731147181");
       if (check.ok) {
         console.log("[RC Extension] Portal verified and ready for RC modification.");
       }
     });
-  });
+  }
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    initOnPageReady();
+  } else {
+    window.addEventListener("DOMContentLoaded", initOnPageReady);
+    window.addEventListener("load", initOnPageReady);
+  }
 })();

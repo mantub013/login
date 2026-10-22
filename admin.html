@@ -539,9 +539,12 @@
 
       <div class="token-card">
         <div id="configTokenBox" class="token-box">Loading configuration...</div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button id="btnCopyToken" class="btn btn-secondary" style="font-size: 12px;">
             📋 Copy Token
+          </button>
+          <button id="btnDownloadConfig" class="btn btn-secondary" style="font-size: 12px;">
+            📥 Download config.json
           </button>
           <button id="btnImportToken" class="btn btn-secondary" style="font-size: 12px;">
             📥 Import Token from Extension
@@ -700,19 +703,27 @@
       lockOverlay.classList.remove("hidden");
     });
 
-    // Authorize Current Month
+    const btnDownloadConfig = document.getElementById("btnDownloadConfig");
+
+    // Authorize Current Month (Auto-saves immediately)
     btnAuthorizeCurrentMonth.addEventListener("click", () => {
       const thisMonth = getYearMonth();
       activeMonth.value = thisMonth;
-      showAlert(`✓ Authorized for current month (${thisMonth})`);
+      currentConfig.activeMonth = thisMonth;
+      saveConfig(currentConfig);
+      updateUi();
+      // Notify extension directly
+      window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { activeMonth: thisMonth } }, "*");
+      showAlert(`✓ Authorized and saved for current month (${thisMonth})`);
     });
 
-    // Reset Counter
+    // Reset Counter (Auto-saves immediately)
     btnResetCounter.addEventListener("click", () => {
       if (confirm("Reset change counter to 0?")) {
         currentConfig.usedChanges = 0;
         saveConfig(currentConfig);
         updateUi();
+        window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { usedChanges: 0 } }, "*");
         showAlert("✓ Usage counter reset to 0.");
       }
     });
@@ -735,6 +746,7 @@
         currentConfig.usedChanges = (currentConfig.usedChanges || 0) + 1;
         saveConfig(currentConfig);
         updateUi();
+        window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { rcHistory: currentConfig.rcHistory, usedChanges: currentConfig.usedChanges } }, "*");
         showAlert(`✓ Logged RC number: ${rc.trim()}`);
       }
     });
@@ -745,6 +757,7 @@
         currentConfig.rcHistory = [];
         saveConfig(currentConfig);
         updateUi();
+        window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { rcHistory: [] } }, "*");
         showAlert("✓ RC history log cleared.");
       }
     });
@@ -769,16 +782,20 @@
       document.body.removeChild(link);
     });
 
-    // Save
+    // Save Config
     btnSaveConfig.addEventListener("click", () => {
       currentConfig.isEnabled = switchEnabled.checked;
-      currentConfig.activeMonth = activeMonth.value.trim();
-      currentConfig.authorizedUsername = authUsername.value.trim();
+      currentConfig.activeMonth = activeMonth.value.trim() || getYearMonth();
+      currentConfig.authorizedUsername = authUsername.value.trim() || "9731147181";
       currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 50;
       currentConfig.adminPin = adminPin.value.trim() || "1234";
 
       saveConfig(currentConfig);
       updateUi();
+
+      // Send to local extension if present
+      window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: currentConfig }, "*");
+
       showAlert("✓ All admin settings updated and saved!");
     });
 
@@ -787,6 +804,27 @@
       navigator.clipboard.writeText(configTokenBox.textContent).then(() => {
         showAlert("✓ Config token copied to clipboard!");
       });
+    });
+
+    // Download config.json
+    btnDownloadConfig.addEventListener("click", () => {
+      const jsonStr = JSON.stringify({
+        isEnabled: currentConfig.isEnabled,
+        authorizedUsername: currentConfig.authorizedUsername,
+        activeMonth: currentConfig.activeMonth,
+        maxChanges: currentConfig.maxChanges,
+        updatedAt: new Date().toISOString()
+      }, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "config.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showAlert("✓ Downloaded config.json!");
     });
 
     // Import Token
@@ -798,12 +836,41 @@
           currentConfig = { ...currentConfig, ...parsed };
           saveConfig(currentConfig);
           updateUi();
+          window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: currentConfig }, "*");
           showAlert("✓ Successfully imported token and synced RC history!");
         } catch (e) {
           alert("Invalid token format: " + e.message);
         }
       }
     });
+
+    // Listen for extension direct bridge messages
+    window.addEventListener("message", (event) => {
+      if (!event.data || !event.data.type) return;
+
+      if (event.data.type === "RC_ADMIN_RESPONSE_DATA" && event.data.data) {
+        const extData = event.data.data;
+        let changed = false;
+        if (extData.rcHistory && extData.rcHistory.length > 0) {
+          currentConfig.rcHistory = extData.rcHistory;
+          changed = true;
+        }
+        if (typeof extData.usedChanges === "number") {
+          currentConfig.usedChanges = extData.usedChanges;
+          changed = true;
+        }
+        if (changed) {
+          saveConfig(currentConfig);
+          updateUi();
+          showAlert("🟢 Connected directly to Extension! Live data synced.");
+        }
+      }
+    });
+
+    // Request extension data on load
+    setTimeout(() => {
+      window.postMessage({ type: "RC_ADMIN_REQUEST_DATA" }, "*");
+    }, 400);
 
     updateUi();
   </script>
