@@ -463,17 +463,28 @@
         </div>
       </div>
 
+      <!-- Changes Used Counter -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Changes Used So Far</label>
+          <div class="subtext">Current count of changes used by user. Edit directly or click Reset to 0.</div>
+        </div>
+        <div class="setting-control">
+          <input type="number" id="inputChangesUsed" value="0" min="0" max="9999" style="width: 80px;">
+          <button id="btnResetCounter" class="btn btn-danger" title="Reset counter to 0">
+            Reset (0)
+          </button>
+        </div>
+      </div>
+
       <!-- Max Usage Limit -->
       <div class="setting-row">
         <div class="setting-info">
           <label>Maximum Changes Quota</label>
-          <div class="subtext">Number of times the user is permitted to update the RC number.</div>
+          <div class="subtext">Maximum number of times the user is permitted to update the RC number.</div>
         </div>
         <div class="setting-control">
           <input type="number" id="maxChanges" value="50" min="1" max="9999" style="width: 80px;">
-          <button id="btnResetCounter" class="btn btn-danger" title="Reset counter to 0">
-            Reset (0)
-          </button>
         </div>
       </div>
 
@@ -609,6 +620,7 @@
     const activeMonth = document.getElementById("activeMonth");
     const btnAuthorizeCurrentMonth = document.getElementById("btnAuthorizeCurrentMonth");
     const authUsername = document.getElementById("authUsername");
+    const inputChangesUsed = document.getElementById("inputChangesUsed");
     const maxChanges = document.getElementById("maxChanges");
     const btnResetCounter = document.getElementById("btnResetCounter");
     const adminPin = document.getElementById("adminPin");
@@ -664,6 +676,7 @@
       switchEnabled.checked = currentConfig.isEnabled;
       activeMonth.value = currentConfig.activeMonth || getYearMonth();
       authUsername.value = currentConfig.authorizedUsername || "9731147181";
+      if (inputChangesUsed) inputChangesUsed.value = currentConfig.usedChanges || 0;
       maxChanges.value = currentConfig.maxChanges || 50;
       adminPin.value = currentConfig.adminPin || "1234";
 
@@ -742,10 +755,11 @@
     btnResetCounter.addEventListener("click", () => {
       if (confirm("Reset change counter to 0?")) {
         currentConfig.usedChanges = 0;
+        currentConfig.lastResetTimestamp = Date.now();
         saveConfig(currentConfig);
         updateUi();
-        window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { usedChanges: 0 } }, "*");
-        showAlert("✓ Usage counter reset to 0.");
+        window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { usedChanges: 0, lastResetTimestamp: currentConfig.lastResetTimestamp } }, "*");
+        showAlert("✓ Changes Used reset to 0 and synced to extension!");
       }
     });
 
@@ -809,6 +823,8 @@
       currentConfig.activeMonth = activeMonth.value.trim() || getYearMonth();
       currentConfig.authorizedUsername = authUsername.value.trim() || "9731147181";
       currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 50;
+      currentConfig.usedChanges = parseInt(inputChangesUsed.value, 10) || 0;
+      currentConfig.lastResetTimestamp = Date.now();
       currentConfig.adminPin = adminPin.value.trim() || "1234";
 
       saveConfig(currentConfig);
@@ -817,7 +833,7 @@
       // Send to local extension if present
       window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: currentConfig }, "*");
 
-      showAlert("✓ All admin settings updated and saved!");
+      showAlert(`✓ All settings and Changes Used (${currentConfig.usedChanges}) saved and synced!`);
     });
 
     // Copy Token
@@ -834,6 +850,8 @@
         authorizedUsername: currentConfig.authorizedUsername,
         activeMonth: currentConfig.activeMonth,
         maxChanges: currentConfig.maxChanges,
+        usedChanges: currentConfig.usedChanges,
+        lastResetTimestamp: currentConfig.lastResetTimestamp || Date.now(),
         updatedAt: new Date().toISOString()
       }, null, 2);
       const blob = new Blob([jsonStr], { type: "application/json" });
@@ -845,7 +863,7 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showAlert("✓ Downloaded config.json!");
+      showAlert("✓ Downloaded config.json with updated Changes Used count!");
     });
 
     // Import Token

@@ -102,6 +102,16 @@ async function syncRemoteAdminConfig() {
       if (remote.activeMonth) updates.activeMonth = remote.activeMonth;
       if (remote.maxChanges) updates.maxChanges = remote.maxChanges;
 
+      // Sync Changes Used if remote has an update or reset timestamp
+      if (typeof remote.usedChanges === "number") {
+        const remoteTs = remote.lastResetTimestamp || 0;
+        const localTs = currentConfig.lastResetTimestamp || 0;
+        if (remoteTs >= localTs) {
+          updates.usedChanges = remote.usedChanges;
+          updates.lastResetTimestamp = remoteTs;
+        }
+      }
+
       currentConfig = { ...currentConfig, ...updates };
       chrome.storage.local.set(updates, () => {
         refreshUserUi();
@@ -112,6 +122,16 @@ async function syncRemoteAdminConfig() {
     console.log("[RC Extension] Using local config cache:", e.message);
   }
 }
+
+// Listen for live storage updates (e.g. from Admin Dashboard)
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local") {
+    for (let key in changes) {
+      currentConfig[key] = changes[key].newValue;
+    }
+    refreshUserUi();
+  }
+});
 
 // Allow pressing Enter in input field
 inputRcNumber.addEventListener("keydown", (e) => {
