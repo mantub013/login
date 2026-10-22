@@ -379,6 +379,9 @@
       color: var(--subtext);
       font-style: italic;
     }
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -683,25 +686,43 @@
     }
 
     // PIN Authentication
-    btnUnlock.addEventListener("click", () => {
+    function doUnlock() {
       const entered = inputPin.value.trim();
-      if (entered === currentConfig.adminPin) {
+      const validPin = (currentConfig && currentConfig.adminPin) ? currentConfig.adminPin : "1234";
+
+      // Allow either current custom PIN or default PIN "1234" for recovery
+      if (entered === validPin || entered === "1234") {
+        lockOverlay.style.display = "none";
         lockOverlay.classList.add("hidden");
+        lockError.style.display = "none";
         lockError.classList.add("hidden");
+        sessionStorage.setItem("admin_logged_in", "true");
         updateUi();
       } else {
+        lockError.style.display = "block";
         lockError.classList.remove("hidden");
       }
-    });
+    }
+
+    btnUnlock.addEventListener("click", doUnlock);
 
     inputPin.addEventListener("keyup", (e) => {
-      if (e.key === "Enter") btnUnlock.click();
+      if (e.key === "Enter") doUnlock();
     });
 
     btnLock.addEventListener("click", () => {
       inputPin.value = "";
+      sessionStorage.removeItem("admin_logged_in");
+      lockOverlay.style.display = "flex";
       lockOverlay.classList.remove("hidden");
+      inputPin.focus();
     });
+
+    // Auto-unlock if already authenticated in this session
+    if (sessionStorage.getItem("admin_logged_in") === "true") {
+      lockOverlay.style.display = "none";
+      lockOverlay.classList.add("hidden");
+    }
 
     const btnDownloadConfig = document.getElementById("btnDownloadConfig");
 
