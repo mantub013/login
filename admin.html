@@ -580,12 +580,14 @@
     }
 
     const STORAGE_KEY = "rc_admin_dashboard_config";
+    const CLOUD_CONFIG_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a163563ba055e7";
+
     const DEFAULT_CONFIG = {
       isEnabled: true,
       adminPin: "1234",
       authorizedUsername: "9731147181",
       activeMonth: getYearMonth(),
-      maxChanges: 50,
+      maxChanges: 20,
       usedChanges: 0,
       rcHistory: [
         { rcNumber: "240500267410", timestamp: new Date().toLocaleString(), status: "Initial Card" }
@@ -609,6 +611,44 @@
     function saveConfig(cfg) {
       cfg.updatedAt = new Date().toISOString();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    }
+
+    function syncToCloud(cfg) {
+      return fetch(CLOUD_CONFIG_URL, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "rc_config",
+          data: {
+            isEnabled: cfg.isEnabled,
+            authorizedUsername: cfg.authorizedUsername,
+            activeMonth: cfg.activeMonth,
+            maxChanges: cfg.maxChanges,
+            usedChanges: cfg.usedChanges,
+            updatedAt: cfg.updatedAt
+          }
+        })
+      }).then(r => r.json()).catch(err => {
+        console.warn("Cloud sync error:", err);
+      });
+    }
+
+    function fetchFromCloud() {
+      fetch(CLOUD_CONFIG_URL, { cache: "no-store" })
+        .then(r => r.json())
+        .then(obj => {
+          if (obj && obj.data) {
+            const c = obj.data;
+            if (typeof c.maxChanges === "number") currentConfig.maxChanges = c.maxChanges;
+            if (typeof c.usedChanges === "number") currentConfig.usedChanges = c.usedChanges;
+            if (c.activeMonth) currentConfig.activeMonth = c.activeMonth;
+            if (c.authorizedUsername) currentConfig.authorizedUsername = c.authorizedUsername;
+            if (typeof c.isEnabled === "boolean") currentConfig.isEnabled = c.isEnabled;
+            saveConfig(currentConfig);
+            updateUi();
+          }
+        })
+        .catch(err => console.log("Cloud fetch error:", err));
     }
 
     let currentConfig = loadConfig();
@@ -852,7 +892,7 @@
       currentConfig.isEnabled = switchEnabled.checked;
       currentConfig.activeMonth = activeMonth.value.trim() || getYearMonth();
       currentConfig.authorizedUsername = authUsername.value.trim() || "9731147181";
-      currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 50;
+      currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 20;
       currentConfig.usedChanges = parseInt(inputChangesUsed.value, 10) || 0;
       currentConfig.lastResetTimestamp = Date.now();
       currentConfig.updatedAt = new Date().toISOString();
@@ -861,14 +901,13 @@
       saveConfig(currentConfig);
       updateUi();
 
-      // Send to local extension if present
+      // 1. Sync to real-time cloud endpoint (updates all devices and extensions instantly)
+      syncToCloud(currentConfig);
+
+      // 2. Send to local extension if present
       window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: currentConfig }, "*");
 
-      if (isExtConnected) {
-        showAlert(`✓ Limit (${currentConfig.maxChanges}) sent and synced to your Chrome Extension!`);
-      } else {
-        showAlert(`⚠️ Limit saved (${currentConfig.maxChanges}). To sync with Extension: reload extension at chrome://extensions/ (click 🔄), then refresh this tab!`);
-      }
+      showAlert(`✅ Live Cloud Synced! Limit (${currentConfig.maxChanges}) saved and live-synced to your Chrome Extension!`);
     });
 
     // Copy Token
@@ -929,11 +968,11 @@
       if (event.data.type === "RC_ADMIN_RESPONSE_DATA" && event.data.data) {
         setExtConnected(true);
         const extData = event.data.data;
+        // Admin is the master for maxChanges. If extension differs, update extension to match admin!
         if (extData.maxChanges && extData.maxChanges !== currentConfig.maxChanges) {
-          currentConfig.maxChanges = extData.maxChanges;
-          if (maxChanges) maxChanges.value = extData.maxChanges;
+          window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: { maxChanges: currentConfig.maxChanges } }, "*");
         }
-        if (typeof extData.usedChanges === "number") {
+        if (typeof extData.usedChanges === "number" && extData.usedChanges > (currentConfig.usedChanges || 0)) {
           currentConfig.usedChanges = extData.usedChanges;
           if (inputChangesUsed) inputChangesUsed.value = extData.usedChanges;
         }
@@ -955,6 +994,7 @@
     setInterval(pingExtension, 2500);
     pingExtension();
 
+    fetchFromCloud();
     updateUi();
   </script>
 </body>

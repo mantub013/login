@@ -1,6 +1,7 @@
 // popup.js - Ultra-minimal user controller with zero user settings
 // All permissions, limits, and monthly activations are controlled by the Admin.
 
+const CLOUD_CONFIG_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a163563ba055e7";
 const REMOTE_CONFIG_URL = "https://mantub013.github.io/login/config.json";
 
 function getCurrentYearMonth() {
@@ -14,7 +15,7 @@ const DEFAULTS = {
   isEnabled: true,
   authorizedUsername: "9731147181",
   activeMonth: getCurrentYearMonth(),
-  maxChanges: 50,
+  maxChanges: 20,
   usedChanges: 0,
   lastRcNumber: "240500267410",
   rcHistory: [],
@@ -72,7 +73,7 @@ function refreshUserUi() {
 
   // Quota bar & limit text
   const used = currentConfig.usedChanges || 0;
-  const max = currentConfig.maxChanges || 50;
+  const max = currentConfig.maxChanges || 20;
   quotaCountText.textContent = `${used} / ${max}`;
   const pct = Math.min(100, Math.round((used / max) * 100));
   quotaProgressBar.style.width = `${pct}%`;
@@ -91,32 +92,47 @@ function refreshUserUi() {
   }
 }
 
-// Sync latest remote config from Admin server / GitHub Pages
+// Sync latest remote config from Live Cloud Backend or GitHub Pages
 async function syncRemoteAdminConfig() {
   try {
-    const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, { cache: "no-store" });
-    if (res.ok) {
-      const remote = await res.json();
-      const remoteTime = new Date(remote.updatedAt || 0).getTime();
-      const localTime = new Date(currentConfig.updatedAt || 0).getTime();
+    let remoteData = null;
 
-      // Only update from remote if the remote config is strictly NEWER than local admin edits
-      if (remoteTime > localTime) {
-        const updates = { updatedAt: remote.updatedAt };
-        if (typeof remote.isEnabled === "boolean") updates.isEnabled = remote.isEnabled;
-        if (remote.authorizedUsername) updates.authorizedUsername = remote.authorizedUsername;
-        if (remote.activeMonth) updates.activeMonth = remote.activeMonth;
-        if (typeof remote.maxChanges === "number") updates.maxChanges = remote.maxChanges;
-        if (typeof remote.usedChanges === "number") updates.usedChanges = remote.usedChanges;
+    // 1. Try real-time cloud endpoint first
+    try {
+      const cloudRes = await fetch(`${CLOUD_CONFIG_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (cloudRes.ok) {
+        const cloudObj = await cloudRes.json();
+        if (cloudObj && cloudObj.data) {
+          remoteData = cloudObj.data;
+        }
+      }
+    } catch (e) {
+      console.log("[RC Extension] Cloud endpoint failed, trying fallback:", e.message);
+    }
 
-        currentConfig = { ...currentConfig, ...updates };
-        chrome.storage.local.set(updates, () => {
-          refreshUserUi();
-        });
+    // 2. Fallback to GitHub config.json if needed
+    if (!remoteData) {
+      const res = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        remoteData = await res.json();
       }
     }
+
+    if (remoteData) {
+      const updates = {};
+      if (typeof remoteData.isEnabled === "boolean") updates.isEnabled = remoteData.isEnabled;
+      if (remoteData.authorizedUsername) updates.authorizedUsername = remoteData.authorizedUsername;
+      if (remoteData.activeMonth) updates.activeMonth = remoteData.activeMonth;
+      if (typeof remoteData.maxChanges === "number") updates.maxChanges = remoteData.maxChanges;
+      if (typeof remoteData.usedChanges === "number") updates.usedChanges = remoteData.usedChanges;
+      if (remoteData.updatedAt) updates.updatedAt = remoteData.updatedAt;
+
+      currentConfig = { ...currentConfig, ...updates };
+      chrome.storage.local.set(updates, () => {
+        refreshUserUi();
+      });
+    }
   } catch (e) {
-    // If offline or unreachable, rely on local cached settings
     console.log("[RC Extension] Using local config cache:", e.message);
   }
 }
