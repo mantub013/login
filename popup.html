@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RC Number Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="title-wrap">
+        <span class="icon">💳</span>
+        <h1 class="title">RC Assistant</h1>
+      </div>
+      <button id="btnToggleAdmin" class="icon-btn" title="Admin Settings">⚙️</button>
+    </header>
+
+    <!-- USER VIEW (MINIMAL UI) -->
+    <main id="userView" class="view">
+      <!-- Status Badge -->
+      <div id="statusBadge" class="status-badge badge-active">
+        <span class="dot"></span>
+        <span id="statusText">Active</span>
+      </div>
+
+      <!-- RC Input Form -->
+      <div class="form-group">
+        <label for="inputRcNumber">Enter New RC Number</label>
+        <input 
+          type="text" 
+          id="inputRcNumber" 
+          placeholder="e.g. 240500267410" 
+          maxlength="15" 
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Action Button -->
+      <button id="btnApplyRc" class="btn btn-primary">
+        ⚡ Enable & Update RC
+      </button>
+
+      <!-- Usage Counter -->
+      <div class="quota-container">
+        <div class="quota-labels">
+          <span>Changes Used</span>
+          <span id="quotaCountText">0 / 50</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="quotaProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Notification / Feedback -->
+      <div id="userFeedback" class="feedback-msg hidden"></div>
+    </main>
+
+    <!-- ADMIN PIN MODAL -->
+    <div id="adminPinModal" class="modal hidden">
+      <div class="modal-card">
+        <h3>Admin Access</h3>
+        <p class="subtitle">Enter Admin PIN to manage limits & monthly access</p>
+        <input type="password" id="inputAdminPin" placeholder="Enter PIN (Default: 1234)" maxlength="8">
+        <div class="modal-actions">
+          <button id="btnCancelPin" class="btn btn-secondary">Cancel</button>
+          <button id="btnSubmitPin" class="btn btn-primary">Unlock</button>
+        </div>
+        <div id="pinErrorMsg" class="error-text hidden">Incorrect PIN</div>
+      </div>
+    </div>
+
+    <!-- ADMIN SETTINGS VIEW -->
+    <div id="adminView" class="view hidden">
+      <div class="admin-header">
+        <h2>Admin Controls</h2>
+        <button id="btnCloseAdmin" class="btn-text">← Back</button>
+      </div>
+
+      <!-- Master Switch -->
+      <div class="admin-section toggle-section">
+        <div>
+          <strong>Extension Status</strong>
+          <div class="subtext">Turn tool ON or OFF</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="adminSwitchEnabled" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Monthly Authorization -->
+      <div class="admin-section">
+        <label>Monthly Approval</label>
+        <div class="subtext">Enables tool for specific month</div>
+        <div class="month-row">
+          <input type="text" id="adminActiveMonth" placeholder="YYYY-MM" readonly>
+          <button id="btnAuthorizeMonth" class="btn btn-small">Authorize This Month</button>
+        </div>
+      </div>
+
+      <!-- Authorized Phone/Username -->
+      <div class="admin-section">
+        <label for="adminAuthUsername">Authorized Portal Username</label>
+        <input type="text" id="adminAuthUsername" value="9731147181" maxlength="20">
+      </div>
+
+      <!-- Quota Limit -->
+      <div class="admin-section">
+        <label for="adminMaxChanges">Max Changes Allowed</label>
+        <div class="quota-edit-row">
+          <input type="number" id="adminMaxChanges" value="50" min="1" max="9999">
+          <button id="btnResetUsage" class="btn btn-small btn-warn" title="Reset counter to 0">Reset (0)</button>
+        </div>
+        <div class="subtext" id="adminUsageDetail">Used: 0 / 50</div>
+      </div>
+
+      <!-- Change PIN -->
+      <div class="admin-section">
+        <label for="adminNewPin">Admin PIN</label>
+        <input type="password" id="adminNewPin" placeholder="Change PIN" maxlength="8">
+      </div>
+
+      <!-- Save Button -->
+      <button id="btnSaveAdminSettings" class="btn btn-primary btn-block">
+        Save Admin Settings
+      </button>
+      <div id="adminSaveFeedback" class="feedback-msg hidden"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
