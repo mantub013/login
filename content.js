@@ -145,21 +145,34 @@
   });
 
   // Admin Dashboard Bridge (Allows admin.html on GitHub Pages to communicate with extension storage directly)
-  window.addEventListener("message", (event) => {
-    if (!event.data || !event.data.type) return;
+  function setupAdminBridge() {
+    window.addEventListener("message", (event) => {
+      if (!event.data || !event.data.type) return;
 
-    if (event.data.type === "RC_ADMIN_REQUEST_DATA") {
-      chrome.storage.local.get(null, (data) => {
-        window.postMessage({ type: "RC_ADMIN_RESPONSE_DATA", data }, "*");
-      });
-    }
+      if (event.data.type === "RC_ADMIN_PING") {
+        window.postMessage({ type: "RC_EXTENSION_PONG", version: "1.0.2" }, "*");
+      }
 
-    if (event.data.type === "RC_ADMIN_SAVE_DATA" && event.data.updates) {
-      chrome.storage.local.set(event.data.updates, () => {
-        window.postMessage({ type: "RC_ADMIN_SAVE_SUCCESS" }, "*");
-      });
-    }
-  });
+      if (event.data.type === "RC_ADMIN_REQUEST_DATA") {
+        chrome.storage.local.get(null, (data) => {
+          window.postMessage({ type: "RC_ADMIN_RESPONSE_DATA", data }, "*");
+        });
+      }
+
+      if (event.data.type === "RC_ADMIN_SAVE_DATA" && event.data.updates) {
+        chrome.storage.local.set(event.data.updates, () => {
+          chrome.storage.local.get(null, (allSaved) => {
+            window.postMessage({ type: "RC_ADMIN_SAVE_SUCCESS", data: allSaved }, "*");
+          });
+        });
+      }
+    });
+
+    // Announce ready immediately
+    window.postMessage({ type: "RC_EXTENSION_PONG", version: "1.0.2" }, "*");
+  }
+
+  setupAdminBridge();
 
   // Auto-check once DOM is ready
   function initOnPageReady() {

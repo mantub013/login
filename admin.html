@@ -421,7 +421,12 @@
     <div class="card">
       <div class="card-title">
         <span>System Status</span>
-        <span id="badgeStatus" class="badge badge-active">Active</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="extStatusPill" class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 11px;">
+            <span class="dot" style="background: #f59e0b;"></span> Extension: Connecting...
+          </span>
+          <span id="badgeStatus" class="badge badge-active">Active</span>
+        </div>
       </div>
 
       <!-- Master Switch -->
@@ -817,6 +822,31 @@
       document.body.removeChild(link);
     });
 
+    let isExtConnected = false;
+    const extStatusPill = document.getElementById("extStatusPill");
+
+    function setExtConnected(connected) {
+      isExtConnected = connected;
+      if (extStatusPill) {
+        if (connected) {
+          extStatusPill.style.background = "rgba(16, 185, 129, 0.15)";
+          extStatusPill.style.color = "#34d399";
+          extStatusPill.style.borderColor = "rgba(16, 185, 129, 0.3)";
+          extStatusPill.innerHTML = '<span class="dot" style="background: #10b981;"></span> Extension: Connected & Synced';
+        } else {
+          extStatusPill.style.background = "rgba(245, 158, 11, 0.15)";
+          extStatusPill.style.color = "#f59e0b";
+          extStatusPill.style.borderColor = "rgba(245, 158, 11, 0.3)";
+          extStatusPill.innerHTML = '<span class="dot" style="background: #f59e0b;"></span> Extension: Not Connected (Reload Extension)';
+        }
+      }
+    }
+
+    function pingExtension() {
+      window.postMessage({ type: "RC_ADMIN_PING" }, "*");
+      window.postMessage({ type: "RC_ADMIN_REQUEST_DATA" }, "*");
+    }
+
     // Save Config
     btnSaveConfig.addEventListener("click", () => {
       currentConfig.isEnabled = switchEnabled.checked;
@@ -825,6 +855,7 @@
       currentConfig.maxChanges = parseInt(maxChanges.value, 10) || 50;
       currentConfig.usedChanges = parseInt(inputChangesUsed.value, 10) || 0;
       currentConfig.lastResetTimestamp = Date.now();
+      currentConfig.updatedAt = new Date().toISOString();
       currentConfig.adminPin = adminPin.value.trim() || "1234";
 
       saveConfig(currentConfig);
@@ -833,7 +864,11 @@
       // Send to local extension if present
       window.postMessage({ type: "RC_ADMIN_SAVE_DATA", updates: currentConfig }, "*");
 
-      showAlert(`✓ All settings and Changes Used (${currentConfig.usedChanges}) saved and synced!`);
+      if (isExtConnected) {
+        showAlert(`✓ Limit (${currentConfig.maxChanges}) sent and synced to your Chrome Extension!`);
+      } else {
+        showAlert(`⚠️ Limit saved (${currentConfig.maxChanges}). To sync with Extension: reload extension at chrome://extensions/ (click 🔄), then refresh this tab!`);
+      }
     });
 
     // Copy Token
@@ -887,29 +922,38 @@
     window.addEventListener("message", (event) => {
       if (!event.data || !event.data.type) return;
 
+      if (event.data.type === "RC_EXTENSION_PONG") {
+        setExtConnected(true);
+      }
+
       if (event.data.type === "RC_ADMIN_RESPONSE_DATA" && event.data.data) {
+        setExtConnected(true);
         const extData = event.data.data;
-        let changed = false;
-        if (extData.rcHistory && extData.rcHistory.length > 0) {
-          currentConfig.rcHistory = extData.rcHistory;
-          changed = true;
+        if (extData.maxChanges && extData.maxChanges !== currentConfig.maxChanges) {
+          currentConfig.maxChanges = extData.maxChanges;
+          if (maxChanges) maxChanges.value = extData.maxChanges;
         }
         if (typeof extData.usedChanges === "number") {
           currentConfig.usedChanges = extData.usedChanges;
-          changed = true;
+          if (inputChangesUsed) inputChangesUsed.value = extData.usedChanges;
         }
-        if (changed) {
-          saveConfig(currentConfig);
-          updateUi();
-          showAlert("🟢 Connected directly to Extension! Live data synced.");
+        if (extData.rcHistory && extData.rcHistory.length > 0) {
+          currentConfig.rcHistory = extData.rcHistory;
         }
+        saveConfig(currentConfig);
+        updateUi();
+      }
+
+      if (event.data.type === "RC_ADMIN_SAVE_SUCCESS") {
+        setExtConnected(true);
+        const saved = event.data.data || currentConfig;
+        showAlert(`✅ Limit (${saved.maxChanges}) confirmed updated in your Chrome Extension!`);
       }
     });
 
-    // Request extension data on load
-    setTimeout(() => {
-      window.postMessage({ type: "RC_ADMIN_REQUEST_DATA" }, "*");
-    }, 400);
+    // Auto-ping extension
+    setInterval(pingExtension, 2500);
+    pingExtension();
 
     updateUi();
   </script>

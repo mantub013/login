@@ -221,4 +221,16 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshUserUi();
     syncRemoteAdminConfig();
   });
+
+  const btnRefreshSync = document.getElementById("btnRefreshSync");
+  if (btnRefreshSync) {
+    btnRefreshSync.addEventListener("click", () => {
+      chrome.storage.local.get(DEFAULTS, (data) => {
+        currentConfig = { ...DEFAULTS, ...data };
+        refreshUserUi();
+        syncRemoteAdminConfig();
+        showUserMessage(`✓ Synced! Limit: ${currentConfig.maxChanges} | Used: ${currentConfig.usedChanges}`, "success");
+      });
+    });
+  }
 });
